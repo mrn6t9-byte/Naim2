@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClipByNaim Stream Recorder</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<style>
+body { background:#121212; color:#fff; font-family:Arial; text-align:center; padding:20px; }
+.container { max-width:600px; margin:auto; background:#1e1e1e; padding:20px; border-radius:10px; }
+input { width:90%; padding:10px; margin:10px 0; border-radius:5px; border:none; }
+button { width:95%; padding:12px; margin:5px 0; border-radius:5px; border:none; font-weight:bold; cursor:pointer; }
+#playBtn { background:#ff334b; color:#fff; }
+#recBtn { background:red; color:#fff; display:none; }
+#stopBtn { background:#fff; color:#000; display:none; }
+video { width:100%; margin-top:15px; border-radius:10px; background:#000; }
+.status { margin-top:10px; color:yellow; font-size:14px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+<h2>ClipByNaim Recorder</h2>
+<input type="text" id="m3u8Link" placeholder="Paste m3u8 link here...">
+<button id="playBtn">▶ PLAY STREAM</button>
+<video id="video" controls></video>
+<div class="status" id="status"></div>
+<button id="recBtn">● REC</button>
+<button id="stopBtn">■ STOP & SAVE</button>
+</div>
+
+<script>
+const video = document.getElementById('video');
+const playBtn = document.getElementById('playBtn');
+const recBtn = document.getElementById('recBtn');
+const stopBtn = document.getElementById('stopBtn');
+const status = document.getElementById('status');
+let mediaRecorder;
+let recordedChunks = [];
+
+// ১. Stream play
+playBtn.onclick = () => {
+    const url = document.getElementById('m3u8Link').value.trim();
+    if(!url) return alert("Paste a valid m3u8 link!");
+
+    if(Hls.isSupported()) {
+        const hls = new Hls();
+        hls.loadSource(url);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            video.play();
+            recBtn.style.display = 'block';
+            status.innerText = "Playing stream...";
+        });
+    } else if(video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = url;
+        video.play();
+        recBtn.style.display = 'block';
+    } else {
+        alert("Your browser does not support HLS.");
+    }
+};
+
+// ২. Start Recording
+recBtn.onclick = () => {
+    recordedChunks = [];
+    const stream = video.captureStream();
+    try {
+        mediaRecorder = new MediaRecorder(stream);
+    } catch(e) {
+        alert("Recording not supported in this browser.");
+        return;
+    }
+
+    mediaRecorder.ondataavailable = e => {
+        if(e.data.size>0) recordedChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = () => {
+        const blob = new Blob(recordedChunks,{type:'video/webm'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'ClipByNaim_Record.webm';
+        a.click();
+        status.innerText = "Recording saved!";
+    };
+
+    mediaRecorder.start();
+    status.innerText = "🔴 Recording...";
+    recBtn.style.display='none';
+    stopBtn.style.display='block';
+};
+
+// ৩. Stop Recording
+stopBtn.onclick = () => {
+    mediaRecorder.stop();
+    stopBtn.style.display='none';
+    recBtn.style.display='block';
+};
+</script>
+
+</body>
+</html>
